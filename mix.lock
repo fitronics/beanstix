@@ -1,0 +1,6 @@
+%{"bunt": {:hex, :bunt, "0.1.6"},
+  "connection": {:hex, :connection, "1.0.4"},
+  "credo": {:hex, :credo, "0.4.12"},
+  "dialyxir": {:hex, :dialyxir, "0.3.5"},
+  "yamerl": {:hex, :yamerl, "0.3.2"},
+  "yaml_elixir": {:hex, :yaml_elixir, "1.2.1"}}
