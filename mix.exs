@@ -13,15 +13,14 @@ defmodule Beanstix.Mixfile do
   end
 
   def application do
-    [applications: [:logger]]
+    [extra_applications: [:logger]]
   end
 
   defp deps do
     [
       {:connection, "~> 1.0"},
-      {:yaml_elixir, "~> 1.2"},
-      {:credo, "~> 0.4", only: [:dev, :test]},
-      {:dialyxir, "~> 0.3", only: [:dev]}
+      {:credo, "~> 0.6.0-rc2", only: [:dev, :test]},
+      {:dialyxir, "~> 0.4", only: [:dev]}
     ]
   end
 
