@@ -34,11 +34,36 @@ defmodule Beanstix.Protocol do
     ["release ", "#{job_id} #{priority} #{delay}"]
   end
 
-  def format_command({cmd, data}) do
+  def format_command({:bury, job_id}), do: format_command({:bury, job_id, []})
+  def format_command({:bury, job_id, opts}) do
+    priority = Keyword.get(opts, :priority, @default_priority)
+    ["bury ", "#{job_id} #{priority}"]
+  end
+
+  def format_command(:kick), do: format_command({:kick, []})
+  def format_command({:kick}), do: format_command({:kick, []})
+  def format_command({:kick, opts}) do
+    bound = Keyword.get(opts, :bound, 1)
+    ["kick ", "#{bound}"]
+  end
+
+  def format_command({:pause_tube, tube}), do: format_command({:pause_tube, tube, []})
+  def format_command({:pause_tube, tube, opts}) do
+    delay = Keyword.get(opts, :delay, 0)
+    ["pause-tube ", "#{tube} #{delay}"]
+  end
+
+  def format_command({cmd, data}) when is_atom(cmd) do
     [atom_to_cmd(cmd), " #{data}"]
   end
-  def format_command(cmd) do
+  def format_command({cmd}) when is_atom(cmd) do
     atom_to_cmd(cmd)
+  end
+  def format_command(cmd) when is_atom(cmd) do
+    atom_to_cmd(cmd)
+  end
+  def format_command(cmd) do
+    %Error{message: "Unknown Invalid command (#{inspect cmd})"}
   end
 
   @spec pack(binary) :: iodata
@@ -63,6 +88,7 @@ defmodule Beanstix.Protocol do
   def parse(<<"BURIED\r\n", rest :: binary>>),              do: {:ok, :buried, rest}
   def parse(<<"TOUCHED\r\n", rest :: binary>>),             do: {:ok, :touched, rest}
   def parse(<<"NOT_IGNORED\r\n", rest :: binary>>),         do: {:ok, :not_ignored, rest}
+  def parse(<<"PAUSED\r\n", rest :: binary>>),              do: {:ok, :paused, rest}
   def parse(<<"INSERTED ", rest :: binary>>),               do: parse_integer(rest)
   def parse(<<"BURIED ", rest :: binary>>),                 do: parse_integer(rest)
   def parse(<<"WATCHING ", rest :: binary>>),               do: parse_integer(rest)
@@ -71,11 +97,9 @@ defmodule Beanstix.Protocol do
   def parse(<<"RESERVED ", rest :: binary>>),               do: parse_job(rest)
   def parse(<<"FOUND ", rest :: binary>>),                  do: parse_job(rest)
   def parse(<<"OK ", rest :: binary>>),                     do: parse_stats(rest)
-  def parse(""),                                            do: mkcont(&parse/1)
   def parse(data) do
-    raise(ParseError, message: "invalid command (#{inspect data})")
+    raise(ParseError, message: "Invalid command (#{inspect data})")
   end
-
 
   @spec parse_multi(binary, non_neg_integer) :: {:ok, [beanstalkd_value], binary} | {:error, term}
   def parse_multi(data, nelems)
@@ -174,8 +198,8 @@ defmodule Beanstix.Protocol do
     case parse_body(bin) do
       {:ok, body, len, rest} ->
         {:ok, Stats.parse(body, len), rest}
-      _ ->
-        :more
+      fun ->
+        fun
     end
   end
 

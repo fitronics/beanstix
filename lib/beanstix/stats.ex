@@ -11,7 +11,14 @@ defmodule Beanstix.Stats do
     stats_length = length - 5
     # Remove begining and end
     <<"---\n", stats :: size(stats_length) - binary, "\n">> = stats
+    parse_yaml(stats)
+  end
 
+  def parse_yaml("- " <> stats) do
+    String.split(stats, "\n- ")
+  end
+
+  def parse_yaml(stats) do
     # Split by line and parse into a map
     for line <- String.split(stats, "\n"), into: %{}, do: parse_line(line)
   end

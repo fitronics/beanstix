@@ -27,7 +27,7 @@ defmodule Beanstix.TestHelpers do
       Beanstix.command(pid, {:watch, tube})
       Beanstix.command(pid, {:ignore, "default"})
       on_exit(fn -> Beanstix.stop(pid) end)
-      {:ok, %{pid: pid}}
+      {:ok, %{pid: pid, tube: tube}}
     end
   end
 
