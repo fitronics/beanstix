@@ -29,15 +29,15 @@ defmodule BeanstixTest do
     assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id2})
   end
 
-  # test "put timeout", %{pid: pid} do
-  #   data = "1"
-  #   assert {:ok, job_id} = Beanstix.command(pid, {:put, data, timeout: 1})
-  #   assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
-  #   :timer.sleep(:timer.seconds(1))
-  #   assert {:ok, :not_found} = Beanstix.command(pid, {:delete, job_id})
-  #   assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
-  #   assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
-  # end
+  test "put timeout", %{pid: pid} do
+    data = "1"
+    assert {:ok, job_id} = Beanstix.command(pid, {:put, data, timeout: 1})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
+    assert {:ok, :not_found} = Beanstix.command(pid, :peek_ready)
+    :timer.sleep(:timer.seconds(1))
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :peek_ready)
+    assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
+  end
 
   test "use", %{pid: pid} do
     tube = "Beanstix_test_tube"
@@ -61,7 +61,7 @@ defmodule BeanstixTest do
     assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
   end
 
-  test "bury", %{pid: pid} do
+  test "bury and kick", %{pid: pid} do
     data = "1"
     assert {:ok, job_id} = Beanstix.command(pid, {:put, data})
     assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
@@ -73,18 +73,53 @@ defmodule BeanstixTest do
     assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
   end
 
+  test "touch", %{pid: pid} do
+    data = "1"
+    assert {:ok, job_id} = Beanstix.command(pid, {:put, data})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve, timeout: 1)
+    assert {:ok, :touched} = Beanstix.command(pid, {:touch, job_id})
+    assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
+    assert {:ok, :not_found} = Beanstix.command(pid, {:touch, job_id})
+  end
+
+  test "watch and ignore", %{pid: pid, tube: tube} do
+    new_tube = "new_tube"
+    assert {:ok, 1} = Beanstix.command(pid, {:watch, tube})
+    assert {:ok, 2} = Beanstix.command(pid, {:watch, new_tube})
+    assert {:ok, 1} = Beanstix.command(pid, {:ignore, new_tube})
+    assert {:ok, :not_ignored} = Beanstix.command(pid, {:ignore, tube})
+  end
+
+  test "peak, peek-ready, peek-delayed and peek-buried", %{pid: pid} do
+    data = "1"
+    assert {:ok, job_id} = Beanstix.command(pid, {:put, data})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, {:peek, job_id})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :peek_ready)
+    assert {:ok, :not_found} = Beanstix.command(pid, :peek_delayed)
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
+    assert {:ok, :released} = Beanstix.command(pid, {:release, job_id, delay: 1})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :peek_delayed)
+    :timer.sleep(:timer.seconds(1))
+    assert {:ok, :not_found} = Beanstix.command(pid, :peek_delayed)
+    assert {:ok, :not_found} = Beanstix.command(pid, :peek_buried)
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
+    assert {:ok, :buried} = Beanstix.command(pid, {:bury, job_id})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :peek_buried)
+    assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
+  end
+
   test "list-tubes", %{pid: pid} do
     assert {:ok, tubes} = Beanstix.command(pid, :list_tubes)
     assert "default" in tubes
   end
 
+  test "list-tube-used", %{pid: pid, tube: tube} do
+    assert {:ok, ^tube} = Beanstix.command(pid, :list_tube_used)
+  end
+
   test "list-tubes-watched", %{pid: pid, tube: tube} do
     assert {:ok, tubes} = Beanstix.command(pid, :list_tubes_watched)
     assert tube in tubes
-  end
-
-  test "list-tube-used", %{pid: pid, tube: tube} do
-    assert {:ok, ^tube} = Beanstix.command(pid, :list_tube_used)
   end
 
   test "pause-tube", %{pid: pid, tube: tube} do

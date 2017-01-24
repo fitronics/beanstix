@@ -1,6 +1,6 @@
 defmodule Beanstix.Stats do
 
-  @string_keys ["tube", "state", "id", "hostname"]
+  @string_keys ["tube", "state", "name", "id", "hostname"]
   @float_keys ["version", "rusage-utime", "rusage-stime"]
 
   def parse(stats) do
