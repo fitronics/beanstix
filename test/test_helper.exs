@@ -20,13 +20,13 @@ defmodule Beanstix.TestHelpers do
     if context[:no_setup] do
       {:ok, %{}}
     else
-      {:ok, pid} = Beanstix.start_link(host: @host, port: @port)
+      {:ok, pid} = Beanstix.connect(host: @host, port: @port)
       {m, s, ms} = :os.timestamp
       tube = "Beanstix_#{m}_#{s}_#{ms}"
       Beanstix.command(pid, {:use, tube})
       Beanstix.command(pid, {:watch, tube})
       Beanstix.command(pid, {:ignore, "default"})
-      on_exit(fn -> Beanstix.stop(pid) end)
+      on_exit(fn -> Beanstix.disconnect(pid) end)
       {:ok, %{pid: pid, tube: tube}}
     end
   end

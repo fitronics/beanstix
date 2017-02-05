@@ -3,8 +3,8 @@ defmodule Beanstix do
   @type command :: {atom}
   @default_timeout 5000
 
-  @spec start_link(binary | Keyword.t, Keyword.t) :: GenServer.on_start
-  def start_link(beanstalkd_opts \\ [], connection_opts \\ []) do
+  @spec connect(binary | Keyword.t, Keyword.t) :: GenServer.on_start
+  def connect(beanstalkd_opts \\ [], connection_opts \\ []) do
     Beanstix.Connection.start_link(beanstalkd_opts, connection_opts)
   end
 
@@ -14,8 +14,8 @@ defmodule Beanstix do
   This function is asynchronous: it returns `:ok` as soon as it's called and
   performs the closing of the connection after that.
   """
-  @spec stop(GenServer.server) :: :ok
-  def stop(pid) do
+  @spec disconnect(GenServer.server) :: :ok
+  def disconnect(pid) do
     Beanstix.Connection.stop(pid)
   end
 

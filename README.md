@@ -29,6 +29,13 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
     end
     ```
 -->
+## Benchmarking
+
+```sh-session
+$ mix deps.get
+$ MIX_ENV=bench mix compile
+$ MIX_ENV=bench mix bench
+```
 
 ## How to access beanstalkd from command line
 

@@ -20,3 +20,12 @@ defmodule Beanstix.ConnectionError do
   def exception(reason),
     do: %__MODULE__{message: Beanstix.format_error(reason)}
 end
+
+defmodule Beanstix.ParseError do
+  @moduledoc """
+  Error in parsing data according to the
+  [RESP](https://github.com/kr/beanstalkd/blob/master/doc/protocol.txt) protocol.
+  """
+
+  defexception [:message]
+end

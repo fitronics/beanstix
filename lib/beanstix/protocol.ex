@@ -1,19 +1,10 @@
 defmodule Beanstix.Protocol do
   require Logger
 
-  alias Beanstix.{Error, Stats}
+  alias Beanstix.{Error, ParseError, Stats}
 
   @crlf "\r\n"
   @default_priority :math.pow(2, 31) |> round
-
-  defmodule ParseError do
-    @moduledoc """
-    Error in parsing data according to the
-    [RESP](https://github.com/kr/beanstalkd/blob/master/doc/protocol.txt) protocol.
-    """
-
-    defexception [:message]
-  end
 
   @type beanstalkd_value :: binary | integer | [beanstalkd_value]
 
