@@ -6,19 +6,33 @@ defmodule Beanstix.Error do
   defexception [:message]
 
   @type t :: %__MODULE__{message: binary}
-end
 
-defmodule Beanstix.ConnectionError do
-  @moduledoc """
-  Error in the connection to Beanstalkd.
+  @doc """
+  This function formats an error reason into a human-readable string.
+
+  This function can be used to turn an error reason (returned in
+  `{:error, reason}` by `command/3` and `pipeline/3`) into a
+  human-readable message string.
   """
+  @spec format_error(term) :: binary
+  def format_error(reason)
 
-  defexception [:message]
+  # :inet.format_error/1 doesn't format :tcp_closed or :closed.
+  def format_error(:tcp_closed) do
+    "TCP connection closed"
+  end
 
-  def exception(reason) when is_binary(reason),
-    do: %__MODULE__{message: reason}
-  def exception(reason),
-    do: %__MODULE__{message: Beanstix.format_error(reason)}
+  # Manually returned when the connection is closed
+  def format_error(:closed) do
+    "the connection to Beanstalkd is closed"
+  end
+
+  def format_error(reason) do
+    case :inet.format_error(reason) do
+      'unknown POSIX error' -> inspect(reason)
+      message -> List.to_string(message)
+    end
+  end
 end
 
 defmodule Beanstix.ParseError do

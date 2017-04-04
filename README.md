@@ -45,7 +45,5 @@ $ MIX_ENV=bench mix bench
 
  ## TODO
 
- 1. ~~Port gen_tcp implementation to the way redix works with active: :once~~
- 1. ~~Add support for pipelining probably by copying redix~~
  1. Add dialyzir specs
  1. Add documention for real world usage and also on how to use GenStage to consume?

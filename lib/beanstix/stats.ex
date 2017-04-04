@@ -1,4 +1,7 @@
 defmodule Beanstix.Stats do
+  @moduledoc """
+  Stats parsing for Beanstix
+  """
 
   @string_keys ["tube", "state", "name", "id", "hostname"]
   @float_keys ["version", "rusage-utime", "rusage-stime"]

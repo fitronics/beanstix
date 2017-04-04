@@ -7,13 +7,16 @@ defmodule PutBench do
 
   setup_all do
     {:ok, elixir_talk_pid} = ElixirTalk.connect(@host, @port)
-    {:ok, beanstix_pid} = Beanstix.connect(host: @host, port: @port)
-    {:ok, %{elixir_talk_pid: elixir_talk_pid, beanstix_pid: beanstix_pid}}
+    {m, s, ms} = :os.timestamp
+    pool_name = String.to_atom("Beanstix_#{m}_#{s}_#{ms}")
+    Application.ensure_all_started(:shackle)
+    Beanstix.Application.start(nil, [pool_name: pool_name])
+    {:ok, %{elixir_talk_pid: elixir_talk_pid, pool_name: pool_name}}
   end
 
-  teardown_all %{elixir_talk_pid: elixir_talk_pid, beanstix_pid: beanstix_pid} do
+  teardown_all %{elixir_talk_pid: elixir_talk_pid, pool_name: pool_name} do
     ElixirTalk.quit(elixir_talk_pid)
-    Beanstix.disconnect(beanstix_pid)
+    Beanstix.Application.stop(pool_name)
   end
 
   bench "ElixirTalk", [context: bench_context] do
@@ -22,13 +25,13 @@ defmodule PutBench do
   end
 
   bench "Beanstix", [context: bench_context] do
-    {:ok, _job_id} = Beanstix.command(context.beanstix_pid, {:put, @data})
+    {:ok, _job_id} = Beanstix.command(context.pool_name, {:put, @data})
     :ok
   end
 
   bench "ElixirTalk Async", [context: bench_context, data: gen_data(64)] do
     Task.async_stream(data, fn(d) ->
-      ElixirTalk.put(context.elixir_talk_pid, d)
+      {:inserted, _} = ElixirTalk.put(context.elixir_talk_pid, d)
     end, max_concurrency: 32)
     |> Enum.to_list()
     :ok
@@ -36,7 +39,7 @@ defmodule PutBench do
 
   bench "Beanstix Async", [context: bench_context, data: gen_data(64)] do
     Task.async_stream(data, fn(d) ->
-      Beanstix.command(context.beanstix_pid, {:put, d})
+      {:ok, _} = Beanstix.command(context.pool_name, {:put, d})
     end, max_concurrency: 32)
     |> Enum.to_list()
     :ok
