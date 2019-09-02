@@ -6,12 +6,11 @@ defmodule BeanstixProtocolTest do
 
   test "parse_multi/2" do
     cmds = "USING qwerty\r\nTIMED_OUT\r\nINSERTED 12\r\n"
-    reply = {[{:ok, "qwerty"}, {:ok, :timed_out}, {:ok, 12}], 0, ""}
+    reply = {"", 0, [ok: 12, ok: :timed_out, ok: "qwerty"]}
     assert Protocol.parse_multi(cmds, 3) == reply
 
     cmds = "USING qwerty\r\nTIMED_OUT\r\nINSERT"
-    reply = {[{:ok, "qwerty"}, {:ok, :timed_out}], 1, "INSERT"}
+    reply = {"INSERT", 1, [ok: :timed_out, ok: "qwerty"]}
     assert Protocol.parse_multi(cmds, 3) == reply
   end
-
 end

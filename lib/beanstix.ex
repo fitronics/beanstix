@@ -1,40 +1,66 @@
 defmodule Beanstix do
-  @moduledoc """
-  A beanstalkd client for elixir using shackle network client
+  alias Beanstix.Connection
 
-  For more information on the beanstalkd protocol see
-  [https://github.com/kr/beanstalkd/blob/master/doc/protocol.txt](https://github.com/kr/beanstalkd/blob/master/doc/protocol.txt)
+  @moduledoc """
+  Beanstix - A beanstalkd client coding with Elixir
+
+  Fored from ElixirTalk
+  Copyright 2014-2016 by jsvisa(delweng@gmail.com)
+  """
+  @type connection_error :: :timeout | :closed | :inet.posix()
+  @type result ::
+          {:inserted, non_neg_integer}
+          | {:buried, non_neg_integer}
+          | {:expected_crlf}
+          | :job_too_big
+          | :draining
+          | connection_error
+  @vsn 1.0
+
+  @doc """
+  Connect to the beanstalkd server.
   """
 
-  @type result :: {:ok, non_neg_integer} |
-                  {:ok, atom} |
-                  {:error, :job_too_big} |
-                  {:error, :draining}
-
-  @pool_name :BeanstixPool
-
-  def pool_name, do: @pool_name
-  def opts_pool_name(opts), do: Keyword.pop(opts, :pool_name, @pool_name)
-
-  def command(command), do: command(@pool_name, command)
-  def command(pool_name, command) do
-    :shackle.call(pool_name, [command])
+  @spec connect(List.t()) :: {:ok, pid} | {:error, term}
+  def connect(opts) when is_list(opts) do
+    Connection.start_link(opts)
   end
 
-  def pipeline(commands), do: pipeline(@pool_name, commands)
-  def pipeline(pool_name, commands) do
-    :shackle.call(pool_name, commands)
+  @spec connect(:inet.ip_address() | :inet.hostname(), integer, timeout) ::
+          {:ok, pid} | {:error, term}
+  def connect(host \\ '127.0.0.1', port \\ 11300, timeout \\ :infinity) do
+    connect(host: host, port: port, recv_timeout: timeout, connect_timeout: 5_000)
   end
 
   @doc """
-  Put a job in the current tube.
+  Close the connection to server.
+  """
+  @spec quit(pid) :: :ok
+  def quit(pid) do
+    Connection.quit(pid)
+  end
+
+  def pipeline(pid, commands, _opts \\ []) do
+    Connection.call(pid, commands)
+  end
+
+  def command(pid, command, opts \\ []) do
+    pipeline(pid, [command], opts)
+    |> hd()
+  end
+
+  @doc """
+  Put a job to the current tube.
+
   The opts can be any combination of
-    * `:pool_name` - if you have multiple pools you can specify the pool_name
+
     * `:pri` - an integer < 2**32. Jobs with smaller priority values will be
       scheduled before jobs with larger priorities. The most urgent priority is 0;
       the least urgent priority is 4,294,967,295.
+
     * `:delay` - an integer number of seconds to wait before putting the job in
       the ready queue. The job will be in the "delayed" state during this time.
+
     * `:ttr` -time to run -- is an integer number of seconds to allow a worker
       to run this job. This time is counted from the moment a worker reserves
       this job. If the worker does not delete, release, or bury the job within
@@ -42,11 +68,10 @@ defmodule Beanstix do
       The minimum ttr is 1. If the client sends 0, the server will silently
       increase the ttr to 1.
   """
-  @spec put(String.t) :: result
-  @spec put(String.t, [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
-  def put(data, opts \\ []) do
-    {pool_name, opts} = opts_pool_name(opts)
-    command(pool_name, {:put, data, opts})
+  @spec put(pid, String.t()) :: result
+  @spec put(pid, String.t(), [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  def put(pid, data, opts \\ []) do
+    command(pid, {:put, data, opts})
   end
   def put!(data, opts \\ []) do
     case put(data, opts) do
@@ -59,17 +84,16 @@ defmodule Beanstix do
   Put a job in the specified tube.
   The opts are the same as `put`
   """
-  @spec put_in_tube(String.t, String.t) :: result
-  @spec put_in_tube(String.t, String.t, [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
-  def put_in_tube(tube, data, opts \\ []) do
-    {pool_name, opts} = opts_pool_name(opts)
-    case pipeline(pool_name, [{:use, tube}, {:put, data, opts}]) do
+  @spec put_in_tube(pid, String.t, String.t) :: result
+  @spec put_in_tube(pid, String.t, String.t, [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  def put_in_tube(pid, tube, data, opts \\ []) do
+    case pipeline(pid, [{:use, tube}, {:put, data, opts}]) do
       [{:ok, ^tube}, result] -> result
       error -> {:error, "#{inspect error}"}
     end
   end
-  def put_in_tube!(tube, data, opts \\ []) do
-    case put_in_tube(tube, data, opts) do
+  def put_in_tube!(pid, tube, data, opts \\ []) do
+    case put_in_tube(pid, tube, data, opts) do
       {:ok, job_id} -> job_id
       {:error, message} -> raise Beanstix.Error, message: message
     end
@@ -78,10 +102,9 @@ defmodule Beanstix do
   @doc """
   Use a tube to `put` jobs.
   """
-  @spec use(String.t, []) :: {:using, String.t}
-  def use(tube, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:use, tube})
+  @spec use(pid, String.t()) :: {:using, String.t()} | connection_error
+  def use(pid, tube) do
+    command(pid, {:use, tube})
   end
 
   @doc """
@@ -89,19 +112,17 @@ defmodule Beanstix do
   A reserve command will take a job from any of the tubes in the
   watch list.
   """
-  @spec watch(String.t, []) :: {:watching, non_neg_integer}
-  def watch(tube, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:watch, tube})
+  @spec watch(pid, String.t()) :: {:watching, non_neg_integer} | connection_error
+  def watch(pid, tube) do
+    command(pid, {:watch, tube})
   end
 
   @doc """
   Remove the named tube from the watch list for the current connection.
   """
-  @spec ignore(String.t, []) :: {:watching, non_neg_integer} | :not_ignored
-  def ignore(tube, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:ignore, tube})
+  @spec ignore(pid, String.t()) :: {:watching, non_neg_integer} | :not_ignored | connection_error
+  def ignore(pid, tube) do
+    command(pid, {:ignore, tube})
   end
 
   @doc """
@@ -110,13 +131,13 @@ defmodule Beanstix do
   delete jobs that it has reserved, ready jobs, delayed jobs, and jobs that are
   buried.
   """
-  @spec delete(non_neg_integer) :: :deleted | :not_found
-  def delete(id, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:delete, id})
+
+  @spec delete(pid, non_neg_integer) :: :deleted | :not_found | connection_error
+  def delete(pid, id) do
+    command(pid, {:delete, id})
   end
-  def delete!(id, opts \\ []) do
-    case delete(id, opts) do
+  def delete!(pid, id) do
+    case delete(pid, id) do
       {:ok, :deleted} -> :deleted
       {:error, message} -> raise Beanstix.Error, message: message
     end
@@ -130,57 +151,58 @@ defmodule Beanstix do
   (e.g. it may do this on DEADLINE_SOON). The command postpones the auto
   release of a reserved job until TTR seconds from when the command is issued.
   """
-  @spec touch(non_neg_integer) :: :touched | :not_found
-  def touch(id, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:touch, id})
+
+  @spec touch(pid, non_neg_integer) :: :touched | :not_found | connection_error
+  def touch(pid, id) do
+    command(pid, {:touch, id})
   end
 
   @doc """
   Let the client inspect a job in the system. Peeking the given job id
   """
-  @spec peek(non_neg_integer) :: {:found, non_neg_integer} | :not_found
-  def peek(id, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:peek, id})
+
+  @spec peek(pid, non_neg_integer) :: {:found, non_neg_integer} | :not_found | connection_error
+  def peek(pid, id) do
+    command(pid, {:peek, id})
   end
 
   @doc """
   Peeking the next ready job.
   """
-  @spec peek_ready([]) :: {:found, non_neg_integer} | :not_found
-  def peek_ready(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :peek_ready)
+
+  @spec peek_ready(pid) :: {:found, non_neg_integer} | :not_found | connection_error
+  def peek_ready(pid) do
+    command(pid, :peek_ready)
   end
 
   @doc """
   Peeking the delayed job with the shortest delay left.
   """
-  @spec peek_delayed([]) :: {:found, non_neg_integer} | :not_found
-  def peek_delayed(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :peek_delayed)
+
+  @spec peek_delayed(pid) :: {:found, non_neg_integer} | :not_found | connection_error
+  def peek_delayed(pid) do
+    command(pid, :peek_delayed)
   end
 
   @doc """
   Peeking the next job in the list of buried jobs.
   """
-  @spec peek_buried([]) :: {:found, non_neg_integer} | :not_found
-  def peek_buried(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :peek_buried)
+
+  @spec peek_buried(pid) :: {:found, non_neg_integer} | :not_found | connection_error
+  def peek_buried(pid) do
+    command(pid, :peek_buried)
   end
 
   @doc """
   Move jobs into the ready queue. If there are any buried jobs, it will only kick buried jobs.
   Otherwise it will kick delayed jobs.
+
   Apply only to the currently used tube.
   """
-  @spec kick(non_neg_integer) :: {:kicked, non_neg_integer}
-  def kick(bound, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:kick, bound})
+
+  @spec kick(pid, non_neg_integer) :: {:kicked, non_neg_integer} | connection_error
+  def kick(pid, bound \\ 1) do
+    command(pid, {:kick, [bound: bound]})
   end
 
   @doc """
@@ -188,56 +210,94 @@ defmodule Beanstix do
   delayed state, it will be moved to the ready queue of the the same tube where it
   currently belongs.
   """
-  @spec kick_job(non_neg_integer) :: :kicked | :not_found
-  def kick_job(id, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:kick_job, id})
+
+  @spec kick_job(pid, non_neg_integer) :: :kicked | :not_found | connection_error
+  def kick_job(pid, id) do
+    command(pid, {:kick_job, id})
+  end
+
+  @doc """
+  Give statistical information about the system as a whole.
+  """
+
+  @spec stats(pid) :: Map.t() | connection_error
+  def stats(pid) do
+    command(pid, :stats)
+  end
+
+  @doc """
+  Similar to `stats/0`, gives statistical information about the specified job if
+  it exists.
+  """
+
+  @spec stats_job(pid, non_neg_integer) :: Map.t() | :not_found | connection_error
+  def stats_job(pid, id) do
+    command(pid, {:stats_job, id})
+  end
+
+  @doc """
+  Similar to `stats/0`, gives statistical information about the specified tube
+  if it exists.
+  """
+
+  @spec stats_tube(pid, String.t()) :: Map.t() | :not_found | connection_error
+  def stats_tube(pid, tube) do
+    command(pid, {:stats_tube, tube})
   end
 
   @doc """
   Return a list of all existing tubes in the server.
   """
-  @spec list_tubes([]) :: list
-  def list_tubes(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :list_tubes)
+
+  @spec list_tubes(pid) :: list | connection_error
+  def list_tubes(pid) do
+    command(pid, :list_tubes)
   end
 
   @doc """
   Return the tube currently being used by the client.
   """
 
-  @spec list_tube_used([]) :: {:using, String.t}
-  def list_tube_used(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :list_tube_used)
+  @spec list_tube_used(pid) :: {:using, String.t()} | connection_error
+  def list_tube_used(pid) do
+    command(pid, :list_tube_used)
   end
 
   @doc """
   Return the tubes currently being watched by the client.
   """
 
-  @spec list_tubes_watched([]) :: list
-  def list_tubes_watched(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :list_tubes_watched)
+  @spec list_tubes_watched(pid) :: list | connection_error
+  def list_tubes_watched(pid) do
+    command(pid, :list_tubes_watched)
   end
 
   @doc """
   Get a job from the currently watched tubes.
-  The opts can contain
-  * `:timeout` - timeout in seconds or :infinity (default);
   """
-  @spec reserve([]) :: {:reserved, non_neg_integer, String.t}
-  def reserve(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:reserve, opts})
+
+  @spec reserve(pid) :: {:reserved, non_neg_integer, String.t()} | connection_error
+  def reserve(pid) do
+    command(pid, :reserve, :infinity)
   end
-  def reserve!(opts \\ []) do
-    case reserve(opts) do
+  def reserve!(pid) do
+    case reserve(pid) do
       {:ok, {job_id, data}} -> {job_id, data}
       {:error, message} -> raise Beanstix.Error, message: message
     end
+  end
+
+  @doc """
+  Get a job from the currently watched tubes with timeout of seconds.
+  """
+
+  @spec reserve(pid, non_neg_integer) ::
+          {:reserved, non_neg_integer, String.t()}
+          | :deadline_soon
+          | :timed_out
+          | connection_error
+  def reserve(pid, timeout) do
+    command(pid, {:reserve_with_timeout, timeout}, :infinity)
   end
 
   @doc """
@@ -245,67 +305,45 @@ defmodule Beanstix do
   FIFO linked list and will not be touched by the server again until a client
   kicks them with the `kick` command.
   """
-  @spec bury(non_neg_integer) :: :buried | :not_found
-  @spec bury(non_neg_integer, non_neg_integer) :: :buried | :not_found
-  def bury(id, opts \\ []) do
-    {pool_name, opts} = opts_pool_name(opts)
-    command(pool_name, {:bury, id, opts})
+
+  @spec bury(pid, non_neg_integer) :: :buried | :not_found | connection_error
+  @spec bury(pid, non_neg_integer, non_neg_integer) :: :buried | :not_found | connection_error
+  def bury(pid, id, pri \\ 0) do
+    command(pid, {:bury, id, pri})
   end
 
   @doc """
   Delay any new job being reserved for a given time.
-  The opts can any combination of
-  * `:delay` - an integer number of seconds to wait before putting the job back in the ready queue.
-    The job will be in the "delayed" state during this time.
   """
-  @spec pause_tube(String.t, non_neg_integer) :: :paused | :not_found
-  def pause_tube(tube, opts \\ []) do
-    {pool_name, opts} = opts_pool_name(opts)
-    command(pool_name, {:pause_tube, tube, opts})
+
+  @spec pause_tube(pid, String.t(), non_neg_integer) :: :paused | :not_found | connection_error
+  def pause_tube(pid, tube, delay) do
+    command(pid, {:pause_tube, tube, delay})
   end
 
   @doc """
   Put a reserved job back into the ready queue (and marks its state as "ready")
   to be run by any client. It is normally used when the job fails because of a transitory error.
+
   The opts can any combination of
+
   * `:pri` - a new priority to assign to the job;
+
   * `:delay` - an integer number of seconds to wait before putting the job back in the ready queue.
     The job will be in the "delayed" state during this time.
   """
-  @spec release(non_neg_integer) :: :released | :buried | :not_found
-  @spec release(non_neg_integer, [{:pri, integer}, {:delay, integer}]) :: :released | :buried | :not_found
-  def release(id, opts \\ []) do
-    {pool_name, opts} = opts_pool_name(opts)
-    command(pool_name, {:release, id, opts})
-  end
 
-  @doc """
-  Give statistical information about the system as a whole.
-  """
-  @spec stats([]) :: Map.t
-  def stats(opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, :stats)
+  @spec release(pid, non_neg_integer) ::
+          :released
+          | :buried
+          | :not_found
+          | connection_error
+  @spec release(pid, non_neg_integer, [{:pri, integer}, {:delay, integer}]) ::
+          :released
+          | :buried
+          | :not_found
+          | connection_error
+  def release(pid, id, opts \\ []) do
+    command(pid, {:release, id, opts})
   end
-
-  @doc """
-  Similar to `stats/0`, gives statistical information about the specified job if
-  it exists.
-  """
-  @spec stats_job(non_neg_integer) :: Map.t | :not_found
-  def stats_job(id, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:stats_job, id})
-  end
-
-  @doc """
-  Similar to `stats/0`, gives statistical information about the specified tube
-  if it exists.
-  """
-  @spec stats_tube(String.t, []) :: Map.t | :not_found
-  def stats_tube(tube, opts \\ []) do
-    {pool_name, _} = opts_pool_name(opts)
-    command(pool_name, {:stats_tube, tube})
-  end
-
 end

@@ -9,44 +9,37 @@ defmodule BeanstixTest do
     Beanstix.TestHelpers.setup_connection(context)
   end
 
-  test "put", %{pool_name: pool_name} do
-    opts = [pool_name: pool_name]
-    assert {:ok, job_id} = Beanstix.put(@data, opts)
-    assert {:ok, {^job_id, @data}} = Beanstix.reserve(opts)
-    assert {:ok, :deleted} = Beanstix.delete(job_id, opts)
+  test "put", %{pid: pid} do
+    assert {:ok, job_id} = Beanstix.put(pid, @data)
+    assert {:ok, {^job_id, @data}} = Beanstix.reserve(pid)
+    assert {:ok, :deleted} = Beanstix.delete(pid, job_id)
   end
 
-  test "put!", %{pool_name: pool_name} do
-    opts = [pool_name: pool_name]
-    job_id = Beanstix.put!(@data, opts)
-    assert {^job_id, @data} = Beanstix.reserve!(opts)
-    assert :deleted = Beanstix.delete!(job_id, opts)
+  test "put!", %{pid: pid} do
+    job_id = Beanstix.put!(pid, @data)
+    assert {^job_id, @data} = Beanstix.reserve!(pid)
+    assert :deleted = Beanstix.delete!(pid, job_id)
   end
 
-  test "put_in_tube", %{pool_name: pool_name} do
-    opts = [pool_name: pool_name]
-    tube = Atom.to_string(pool_name)
-    assert {:ok, job_id} = Beanstix.put_in_tube(tube, @data, opts)
-    assert {:ok, {^job_id, @data}} = Beanstix.reserve(opts)
-    assert {:ok, :deleted} = Beanstix.delete(job_id, opts)
+  test "put_in_tube", %{pid: pid, tube: tube} do
+    assert {:ok, job_id} = Beanstix.put_in_tube(pid, tube, @data)
+    assert {:ok, {^job_id, @data}} = Beanstix.reserve(pid)
+    assert {:ok, :deleted} = Beanstix.delete(pid, job_id)
   end
 
-  test "put_in_tube!", %{pool_name: pool_name} do
-    opts = [pool_name: pool_name]
-    tube = Atom.to_string(pool_name)
-    job_id = Beanstix.put_in_tube!(tube, @data, opts)
-    assert {^job_id, @data} = Beanstix.reserve!(opts)
-    assert :deleted = Beanstix.delete!(job_id, opts)
+  test "put_in_tube!", %{pid: pid, tube: tube} do
+    job_id = Beanstix.put_in_tube!(pid, tube, @data)
+    assert {^job_id, @data} = Beanstix.reserve!(pid)
+    assert :deleted = Beanstix.delete!(pid, job_id)
   end
 
-  test "release", %{pool_name: pool_name} do
-    opts = [pool_name: pool_name]
-    assert {:ok, job_id} = Beanstix.put(@data, opts)
-    assert {:ok, {^job_id, @data}} = Beanstix.reserve(opts)
-    assert {:ok, :timed_out} = Beanstix.reserve(opts ++ [timeout: 0])
-    assert {:ok, :released} = Beanstix.release(job_id, opts)
-    assert {:ok, {^job_id, @data}} = Beanstix.reserve(opts)
-    assert :deleted = Beanstix.delete!(job_id, opts)
+  test "release", %{pid: pid} do
+    assert {:ok, job_id} = Beanstix.put(pid, @data)
+    assert {:ok, {^job_id, @data}} = Beanstix.reserve(pid)
+    assert {:ok, :timed_out} = Beanstix.reserve(pid, 0)
+    assert {:ok, :released} = Beanstix.release(pid, job_id)
+    assert {:ok, {^job_id, @data}} = Beanstix.reserve(pid)
+    assert :deleted = Beanstix.delete!(pid, job_id)
   end
 
 end

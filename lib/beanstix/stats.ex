@@ -3,37 +3,56 @@ defmodule Beanstix.Stats do
   Stats parsing for Beanstix
   """
 
-  @string_keys ["tube", "state", "name", "id", "hostname"]
-  @float_keys ["version", "rusage-utime", "rusage-stime"]
+  @string_keys ~w(tube state name id hostname)
+  @float_keys ~w(version rusage-utime rusage-stime)
+  @integer_keys ~w(pri age delay ttr time-left file reserves timeouts releases buries kicks
+    current-jobs-urgent current-jobs-ready current-jobs-reserved current-jobs-delayed
+    current-jobs-buried cmd-put cmd-peek cmd-peek-ready cmd-peek-delayed cmd-peek-buried cmd-reserve
+    cmd-reserve-with-timeout cmd-delete cmd-release cmd-use cmd-watch cmd-ignore cmd-bury cmd-kick cmd-touch
+    cmd-stats cmd-stats-job cmd-stats-tube cmd-list-tubes cmd-list-tube-used cmd-list-tubes-watched
+    cmd-pause-tube job-timeouts total-jobs max-job-size current-tubes current-connectionscurrent-producers
+    current-workers current-waiting total-connections pid uptime binlog-oldest-index binlog-current-index
+    binlog-records-migrated binlog-records-written binlog-max-size)
 
   def parse(stats) do
-    parse(stats, byte_size(stats))
+    stats =
+      Enum.reduce(String.split(stats, "\n"), {:list, []}, fn x, {type, acc} ->
+        case parse_line(x) do
+          nil -> {type, acc}
+          {k, v} -> {:map, [{k, v} | acc]}
+          x -> {:list, [x | acc]}
+        end
+      end)
+
+    case stats do
+      {:list, x} -> x
+      {:map, x} -> Enum.into(x, %{})
+    end
   end
 
-  def parse(stats, length) do
-    stats_length = length - 5
-    # Remove begining and end
-    <<"---\n", stats :: size(stats_length) - binary, "\n">> = stats
-    parse_yaml(stats)
+  for key <- @integer_keys do
+    def parse_line(<<unquote(key), ": ", rest::binary>>) do
+      {unquote(key), String.to_integer(rest)}
+    end
   end
 
-  def parse_yaml("- " <> stats) do
-    String.split(stats, "\n- ")
+  for key <- @float_keys do
+    def parse_line(<<unquote(key), ": ", rest::binary>>) do
+      {unquote(key), String.to_float(rest)}
+    end
   end
 
-  def parse_yaml(stats) do
-    # Split by line and parse into a map
-    for line <- String.split(stats, "\n"), into: %{}, do: parse_line(line)
+  for key <- @string_keys do
+    def parse_line(<<unquote(key), ": ", rest::binary>>) do
+      {unquote(key), rest}
+    end
   end
 
-  def parse_line(line) do
-    line
-    |> String.split(": ")
-    |> format()
+  def parse_line(<<"- ", rest::binary>>) do
+    rest
   end
 
-  def format([k, v]) when k in @string_keys, do: {k, v}
-  def format([k, v]) when k in @float_keys, do: {k, String.to_float(v)}
-  def format([k, v]), do: {k, String.to_integer(v)}
-
+  def parse_line(_) do
+    nil
+  end
 end
