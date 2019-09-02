@@ -9,6 +9,7 @@ defmodule BeanstixCommandTest do
 
   test "command/2", %{pid: pid} do
     assert {:error, %Beanstix.Error{message: "UNKNOWN_COMMAND"}} = Beanstix.command(pid, :peak_ready)
+
     assert {:ok, :not_found} = Beanstix.command(pid, :peek_ready)
   end
 
@@ -128,5 +129,4 @@ defmodule BeanstixCommandTest do
     assert {:ok, :paused} = Beanstix.command(pid, {:pause_tube, tube})
     assert {:ok, :paused} = Beanstix.command(pid, {:pause_tube, tube, delay: 1})
   end
-
 end

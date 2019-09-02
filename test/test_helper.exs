@@ -8,9 +8,7 @@ case :gen_tcp.connect(host, port, []) do
     :gen_tcp.close(socket)
 
   {:error, reason} ->
-    Mix.raise(
-      "Failed to connect to Beanstalkd (tcp://#{host}:#{port}): #{:inet.format_error(reason)}"
-    )
+    Mix.raise("Failed to connect to Beanstalkd (tcp://#{host}:#{port}): #{:inet.format_error(reason)}")
 end
 
 defmodule Beanstix.TestHelpers do

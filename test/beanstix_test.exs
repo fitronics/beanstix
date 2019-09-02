@@ -41,5 +41,4 @@ defmodule BeanstixTest do
     assert {:ok, {^job_id, @data}} = Beanstix.reserve(pid)
     assert :deleted = Beanstix.delete!(pid, job_id)
   end
-
 end

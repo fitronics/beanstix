@@ -73,6 +73,7 @@ defmodule Beanstix do
   def put(pid, data, opts \\ []) do
     command(pid, {:put, data, opts})
   end
+
   def put!(data, opts \\ []) do
     case put(data, opts) do
       {:ok, job_id} -> job_id
@@ -84,14 +85,15 @@ defmodule Beanstix do
   Put a job in the specified tube.
   The opts are the same as `put`
   """
-  @spec put_in_tube(pid, String.t, String.t) :: result
-  @spec put_in_tube(pid, String.t, String.t, [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  @spec put_in_tube(pid, String.t(), String.t()) :: result
+  @spec put_in_tube(pid, String.t(), String.t(), [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
   def put_in_tube(pid, tube, data, opts \\ []) do
     case pipeline(pid, [{:use, tube}, {:put, data, opts}]) do
       [{:ok, ^tube}, result] -> result
-      error -> {:error, "#{inspect error}"}
+      error -> {:error, "#{inspect(error)}"}
     end
   end
+
   def put_in_tube!(pid, tube, data, opts \\ []) do
     case put_in_tube(pid, tube, data, opts) do
       {:ok, job_id} -> job_id
@@ -136,6 +138,7 @@ defmodule Beanstix do
   def delete(pid, id) do
     command(pid, {:delete, id})
   end
+
   def delete!(pid, id) do
     case delete(pid, id) do
       {:ok, :deleted} -> :deleted
@@ -280,6 +283,7 @@ defmodule Beanstix do
   def reserve(pid) do
     command(pid, :reserve, :infinity)
   end
+
   def reserve!(pid) do
     case reserve(pid) do
       {:ok, {job_id, data}} -> {job_id, data}
