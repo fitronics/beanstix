@@ -1,0 +1,15 @@
+---
+id: 2
+tube: default
+state: ready
+pri: 0
+age: 15872424
+delay: 0
+ttr: 60
+time-left: 0
+file: 485
+reserves: 2
+timeouts: 0
+releases: 0
+buries: 2
+kicks: 1

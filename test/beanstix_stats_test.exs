@@ -30,6 +30,18 @@ defmodule BeanstixStatsTest do
   end
 
   @tag no_setup: true
+  test "stats-job parse" do
+    stats =
+      File.read!("test/files/stats-job.txt")
+      |> Beanstix.Stats.parse()
+
+    assert stats["id"] == 2
+    assert stats["tube"] == "default"
+    assert stats["reserves"] == 2
+    assert stats["age"] == 15872424
+  end
+
+  @tag no_setup: true
   test "list-tubes parse" do
     tubes =
       File.read!("test/files/list-tubes.txt")

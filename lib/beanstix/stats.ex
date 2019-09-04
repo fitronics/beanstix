@@ -3,7 +3,7 @@ defmodule Beanstix.Stats do
   Stats parsing for Beanstix
   """
 
-  @string_keys ~w(tube state name id hostname)
+  @string_keys ~w(tube state name hostname)
   @float_keys ~w(version rusage-utime rusage-stime)
   @integer_keys ~w(pri age delay ttr time-left file reserves timeouts releases buries kicks
     current-jobs-urgent current-jobs-ready current-jobs-reserved current-jobs-delayed
@@ -27,6 +27,15 @@ defmodule Beanstix.Stats do
     case stats do
       {:list, x} -> x
       {:map, x} -> Enum.into(x, %{})
+    end
+  end
+
+  # id can be integer or string
+  def parse_line(<<"id: ", rest::binary>>) do
+    try do
+      {"id", String.to_integer(rest)}
+    rescue
+      ArgumentError -> {"id", rest}
     end
   end
 

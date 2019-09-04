@@ -1,5 +1,7 @@
 # Beanstix
 
+![Travis](https://travis-ci.org/nicksanders/beanstix.svg?branch=master)
+
 **A beanstalkd client for Elixir**
 
 Mostly a fork of elixir_talk without the yaml dependency and with the added ability to send multiple commands.
