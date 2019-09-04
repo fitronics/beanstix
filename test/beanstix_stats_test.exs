@@ -38,7 +38,7 @@ defmodule BeanstixStatsTest do
     assert stats["id"] == 2
     assert stats["tube"] == "default"
     assert stats["reserves"] == 2
-    assert stats["age"] == 15872424
+    assert stats["age"] == 15_872_424
   end
 
   @tag no_setup: true

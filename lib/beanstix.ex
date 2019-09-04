@@ -40,9 +40,9 @@ defmodule Beanstix do
     Connection.quit(pid)
   end
 
-  def pipeline(pid, commands, _opts \\ []) do
-    Connection.call(pid, commands)
-  end
+  def pipeline(pid, commands, opts \\ [])
+  def pipeline(pid, commands, _opts) when length(commands) > 0, do: Connection.call(pid, commands)
+  def pipeline(_, _, _), do: []
 
   def command(pid, command, opts \\ []) do
     pipeline(pid, [command], opts)
@@ -349,5 +349,26 @@ defmodule Beanstix do
           | connection_error
   def release(pid, id, opts \\ []) do
     command(pid, {:release, id, opts})
+  end
+
+  @doc """
+  Delete all jobs in a given tube
+  """
+  def purge_tube(pid, tube) do
+    {:ok, ^tube} = command(pid, {:use, tube})
+    delete_jobs(pid, :peek_ready)
+    delete_jobs(pid, :peek_delayed)
+    delete_jobs(pid, :peek_buried)
+  end
+
+  defp delete_jobs(pid, peek_cmd) do
+    case Beanstix.command(pid, peek_cmd) do
+      {:ok, {job_id, _}} ->
+        Beanstix.delete(pid, job_id)
+        delete_jobs(pid, peek_cmd)
+
+      _ ->
+        :ok
+    end
   end
 end
