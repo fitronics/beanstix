@@ -20,6 +20,13 @@ defmodule BeanstixCommandTest do
     assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
   end
 
+  test "put binary", %{pid: pid} do
+    data = <<1, 2, 3>>
+    assert {:ok, job_id} = Beanstix.command(pid, {:put, data})
+    assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
+    assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
+  end
+
   test "put priority", %{pid: pid} do
     data1 = "1"
     data2 = "2"

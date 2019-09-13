@@ -8,13 +8,8 @@ defmodule Beanstix do
   Copyright 2014-2016 by jsvisa(delweng@gmail.com)
   """
   @type connection_error :: :timeout | :closed | :inet.posix()
-  @type result ::
-          {:inserted, non_neg_integer}
-          | {:buried, non_neg_integer}
-          | {:expected_crlf}
-          | :job_too_big
-          | :draining
-          | connection_error
+  @type result :: {:ok, non_neg_integer} | {:error, term}
+
   @vsn 1.0
 
   @doc """
@@ -40,13 +35,15 @@ defmodule Beanstix do
     Connection.quit(pid)
   end
 
-  def pipeline(pid, commands, opts \\ [])
-  def pipeline(pid, commands, _opts) when length(commands) > 0, do: Connection.call(pid, commands)
+  def pipeline(pid, commands, timeout \\ 5000)
+  def pipeline(pid, commands, timeout) when length(commands) > 0, do: Connection.call(pid, commands, timeout)
   def pipeline(_, _, _), do: []
 
-  def command(pid, command, opts \\ []) do
-    pipeline(pid, [command], opts)
-    |> hd()
+  def command(pid, command, timeout \\ 5000) do
+    case pipeline(pid, [command], timeout) do
+      result when is_list(result) -> hd(result)
+      error -> error
+    end
   end
 
   @doc """
@@ -248,6 +245,13 @@ defmodule Beanstix do
     command(pid, {:stats_tube, tube})
   end
 
+  def stats_tube!(pid, tube) do
+    case stats_tube(pid, tube) do
+      {:ok, stats} -> stats
+      {:error, message} -> raise Beanstix.Error, message: message
+    end
+  end
+
   @doc """
   Return a list of all existing tubes in the server.
   """
@@ -255,6 +259,13 @@ defmodule Beanstix do
   @spec list_tubes(pid) :: list | connection_error
   def list_tubes(pid) do
     command(pid, :list_tubes)
+  end
+
+  def list_tubes!(pid) do
+    case list_tubes(pid) do
+      {:ok, tubes} -> tubes
+      {:error, message} -> raise Beanstix.Error, message: message
+    end
   end
 
   @doc """

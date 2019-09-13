@@ -109,8 +109,13 @@ defmodule Beanstix.Connection do
   def handle_call(cmds, _from, state) do
     num_cmds = length(cmds)
 
-    Protocol.build_commands(cmds)
-    |> send_msg(num_cmds, state)
+    try do
+      Protocol.build_commands(cmds)
+      |> send_msg(num_cmds, state)
+    rescue
+      error ->
+        {:reply, {:error, "#{inspect(error)}"}, state}
+    end
   end
 
   def handle_cast(:stop, state) do

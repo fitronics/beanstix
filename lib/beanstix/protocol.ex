@@ -7,7 +7,7 @@ defmodule Beanstix.Protocol do
   alias Beanstix.{Error, ParseError, Stats}
 
   @crlf "\r\n"
-  @default_priority round(:math.pow(2, 31))
+  @default_priority 0
 
   @type beanstalkd_value :: binary | integer | [beanstalkd_value]
 
@@ -18,7 +18,7 @@ defmodule Beanstix.Protocol do
     delay = Keyword.get(opts, :delay, 0)
     timeout = Keyword.get(opts, :timeout, 180)
     bytes = byte_size(data)
-    ["put ", "#{priority} #{delay} #{timeout} #{bytes}", @crlf, data]
+    ["put ", to_string(priority), " ", to_string(delay), " ", to_string(timeout), " ", to_string(bytes), @crlf, data]
   end
 
   def format_command({:put, data, opts}), do: format_command({:put, to_string(data), opts})
@@ -29,7 +29,7 @@ defmodule Beanstix.Protocol do
         ["reserve"]
 
       timeout ->
-        ["reserve-with-timeout ", "#{timeout}"]
+        ["reserve-with-timeout #{timeout}"]
     end
   end
 
@@ -82,7 +82,6 @@ defmodule Beanstix.Protocol do
   def build_commands(commands) do
     commands
     |> Enum.map(&build_command/1)
-    |> to_string()
   end
 
   def build_command(command) do
