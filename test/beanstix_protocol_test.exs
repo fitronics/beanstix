@@ -25,4 +25,14 @@ defmodule BeanstixProtocolTest do
     reply = {"INSERT", 1, [ok: :timed_out, ok: "qwerty"]}
     assert Protocol.parse_multi(cmds, 3) == reply
   end
+
+  test "parse/1" do
+    assert Protocol.parse("INSERTED") == :incomplete
+    assert Protocol.parse("INSERTED ") == :incomplete
+    assert Protocol.parse("INSERTED 1\r\n") == {:ok, 1, ""}
+
+    assert Protocol.parse("USING") == :incomplete
+    assert Protocol.parse("USING ") == :incomplete
+    assert Protocol.parse("USING default\r\n") == {:ok, "default", ""}
+  end
 end

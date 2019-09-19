@@ -161,6 +161,8 @@ defmodule Beanstix.Protocol do
     raise ParseError, message: "expected integer, found: #{inspect(<<non_digit>>)}"
   end
 
+  defp parse_integer(<<>>), do: :incomplete
+
   defp parse_digits(<<digit, rest::binary>>, acc) when digit in ?0..?9,
     do: parse_digits(rest, acc * 10 + (digit - ?0))
 
