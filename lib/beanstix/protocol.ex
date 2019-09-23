@@ -157,6 +157,9 @@ defmodule Beanstix.Protocol do
     parse_digits(bin, 0)
   end
 
+  defp parse_integer(<<>>),
+    do: :incomplete
+
   defp parse_integer(non_digit) do
     raise ParseError, message: "expected integer, found: #{inspect(non_digit)}"
   end
