@@ -1,6 +1,6 @@
 defmodule BeanstixProtocolTest do
   use ExUnit.Case
-  alias Beanstix.Protocol
+  alias Beanstix.{ParseError, Protocol}
 
   @moduletag :protocol
 
@@ -30,6 +30,18 @@ defmodule BeanstixProtocolTest do
     assert Protocol.parse("INSERTED") == :incomplete
     assert Protocol.parse("INSERTED ") == :incomplete
     assert Protocol.parse("INSERTED 1\r\n") == {:ok, 1, ""}
+
+    assert_raise ParseError, fn ->
+      Protocol.parse("INSERTED a")
+    end
+
+    assert_raise ParseError, fn ->
+      Protocol.parse("INSERTED a\r\n")
+    end
+
+    assert_raise ParseError, fn ->
+      assert Protocol.parse("INSERTED 1a\r\n")
+    end
 
     assert Protocol.parse("USING") == :incomplete
     assert Protocol.parse("USING ") == :incomplete

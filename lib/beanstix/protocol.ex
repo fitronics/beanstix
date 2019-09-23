@@ -157,11 +157,9 @@ defmodule Beanstix.Protocol do
     parse_digits(bin, 0)
   end
 
-  defp parse_integer(<<non_digit, _::binary>>) do
-    raise ParseError, message: "expected integer, found: #{inspect(<<non_digit>>)}"
+  defp parse_integer(non_digit) do
+    raise ParseError, message: "expected integer, found: #{inspect(non_digit)}"
   end
-
-  defp parse_integer(<<>>), do: :incomplete
 
   defp parse_digits(<<digit, rest::binary>>, acc) when digit in ?0..?9,
     do: parse_digits(rest, acc * 10 + (digit - ?0))
@@ -169,18 +167,22 @@ defmodule Beanstix.Protocol do
   defp parse_digits(<<@crlf, rest::binary>>, acc),
     do: {:ok, acc, rest}
 
-  defp parse_digits(<<_non_digit, _::binary>> = rest, acc),
+  defp parse_digits(<<" ", rest::binary>>, acc),
     do: {:ok, acc, rest}
 
   defp parse_digits(<<>>, _),
     do: :incomplete
+
+  defp parse_digits(non_digit, _) do
+    raise ParseError, message: "expected digits, found: #{inspect(non_digit)}"
+  end
 
   defp parse_string(bin) do
     until_crlf(bin)
   end
 
   defp parse_job(bin) do
-    case parse_id(bin) do
+    case parse_digits(bin, 0) do
       {:ok, id, bin} ->
         case parse_body(bin) do
           {:ok, body, _len, rest} ->
@@ -189,16 +191,6 @@ defmodule Beanstix.Protocol do
           _ ->
             :incomplete
         end
-
-      _ ->
-        :incomplete
-    end
-  end
-
-  defp parse_id(bin) do
-    case parse_digits(bin, 0) do
-      {:ok, id, <<" ", rest::binary>>} ->
-        {:ok, id, rest}
 
       _ ->
         :incomplete
