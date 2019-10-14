@@ -51,14 +51,14 @@ defmodule Beanstix do
 
   The opts can be any combination of
 
-    * `:pri` - an integer < 2**32. Jobs with smaller priority values will be
+    * `:priority` - an integer < 2**32. Jobs with smaller priority values will be
       scheduled before jobs with larger priorities. The most urgent priority is 0;
       the least urgent priority is 4,294,967,295.
 
     * `:delay` - an integer number of seconds to wait before putting the job in
       the ready queue. The job will be in the "delayed" state during this time.
 
-    * `:ttr` -time to run -- is an integer number of seconds to allow a worker
+    * `:ttr` - time to run -- is an integer number of seconds to allow a worker
       to run this job. This time is counted from the moment a worker reserves
       this job. If the worker does not delete, release, or bury the job within
       `:ttr` seconds, the job will time out and the server will release the job.
@@ -66,7 +66,7 @@ defmodule Beanstix do
       increase the ttr to 1.
   """
   @spec put(pid, String.t()) :: result
-  @spec put(pid, String.t(), [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  @spec put(pid, String.t(), [{:priority, integer}, {:delay, integer}, {:ttr, integer}]) :: result
   def put(pid, data, opts \\ []) do
     command(pid, {:put, data, opts})
   end
@@ -83,7 +83,7 @@ defmodule Beanstix do
   The opts are the same as `put`
   """
   @spec put_in_tube(pid, String.t(), String.t()) :: result
-  @spec put_in_tube(pid, String.t(), String.t(), [{:pri, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  @spec put_in_tube(pid, String.t(), String.t(), [{:priority, integer}, {:delay, integer}, {:ttr, integer}]) :: result
   def put_in_tube(pid, tube, data, opts \\ []) do
     case pipeline(pid, [{:use, tube}, {:put, data, opts}]) do
       [{:ok, ^tube}, result] -> result

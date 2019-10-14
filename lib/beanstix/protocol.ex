@@ -7,7 +7,8 @@ defmodule Beanstix.Protocol do
   alias Beanstix.{Error, ParseError, Stats}
 
   @crlf "\r\n"
-  @default_priority 0
+  @default_priority 1024
+  @default_ttr 180
 
   @type beanstalkd_value :: binary | integer | [beanstalkd_value]
 
@@ -16,9 +17,9 @@ defmodule Beanstix.Protocol do
   def format_command({:put, data, opts}) when is_binary(data) do
     priority = Keyword.get(opts, :priority, @default_priority)
     delay = Keyword.get(opts, :delay, 0)
-    timeout = Keyword.get(opts, :timeout, 180)
+    ttr = Keyword.get(opts, :ttr, @default_ttr)
     bytes = byte_size(data)
-    ["put ", to_string(priority), " ", to_string(delay), " ", to_string(timeout), " ", to_string(bytes), @crlf, data]
+    ["put ", to_string(priority), " ", to_string(delay), " ", to_string(ttr), " ", to_string(bytes), @crlf, data]
   end
 
   def format_command({:put, data, opts}), do: format_command({:put, to_string(data), opts})

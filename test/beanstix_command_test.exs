@@ -40,7 +40,7 @@ defmodule BeanstixCommandTest do
 
   test "put timeout", %{pid: pid} do
     data = "1"
-    assert {:ok, job_id} = Beanstix.command(pid, {:put, data, timeout: 1})
+    assert {:ok, job_id} = Beanstix.command(pid, {:put, data, ttr: 1})
     assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
     assert {:ok, :not_found} = Beanstix.command(pid, :peek_ready)
     :timer.sleep(:timer.seconds(1))
