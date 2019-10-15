@@ -322,18 +322,18 @@ defmodule Beanstix do
   """
 
   @spec bury(pid, non_neg_integer) :: :buried | :not_found | connection_error
-  @spec bury(pid, non_neg_integer, non_neg_integer) :: :buried | :not_found | connection_error
-  def bury(pid, id, pri \\ 0) do
-    command(pid, {:bury, id, pri})
+  @spec bury(pid, non_neg_integer, [{:priority, integer}]) :: :buried | :not_found | connection_error
+  def bury(pid, id, opts \\ []) do
+    command(pid, {:bury, id, opts})
   end
 
   @doc """
   Delay any new job being reserved for a given time.
   """
 
-  @spec pause_tube(pid, String.t(), non_neg_integer) :: :paused | :not_found | connection_error
-  def pause_tube(pid, tube, delay) do
-    command(pid, {:pause_tube, tube, delay})
+  @spec pause_tube(pid, String.t(), [{:delay, integer}]) :: :paused | :not_found | connection_error
+  def pause_tube(pid, tube, opts \\ []) do
+    command(pid, {:pause_tube, tube, opts})
   end
 
   @doc """
@@ -342,7 +342,7 @@ defmodule Beanstix do
 
   The opts can any combination of
 
-  * `:pri` - a new priority to assign to the job;
+  * `:priority` - a new priority to assign to the job;
 
   * `:delay` - an integer number of seconds to wait before putting the job back in the ready queue.
     The job will be in the "delayed" state during this time.
@@ -353,7 +353,7 @@ defmodule Beanstix do
           | :buried
           | :not_found
           | connection_error
-  @spec release(pid, non_neg_integer, [{:pri, integer}, {:delay, integer}]) ::
+  @spec release(pid, non_neg_integer, [{:priority, integer}, {:delay, integer}]) ::
           :released
           | :buried
           | :not_found
