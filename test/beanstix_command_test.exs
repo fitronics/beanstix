@@ -43,7 +43,7 @@ defmodule BeanstixCommandTest do
     assert {:ok, job_id} = Beanstix.command(pid, {:put, data, ttr: 1})
     assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :reserve)
     assert {:ok, :not_found} = Beanstix.command(pid, :peek_ready)
-    :timer.sleep(:timer.seconds(1))
+    :timer.sleep(:timer.seconds(2))
     assert {:ok, {^job_id, ^data}} = Beanstix.command(pid, :peek_ready)
     assert {:ok, :deleted} = Beanstix.command(pid, {:delete, job_id})
   end
