@@ -109,7 +109,7 @@ defmodule Beanstix.Protocol do
     end
   end
 
-  @spec parse(binary) :: {:ok, term, binary} | :more
+  @spec parse(binary) :: {:ok, term, binary} | :more | :incomplete
   def parse(<<"OUT_OF_MEMORY\r\n", rest::binary>>), do: error("OUT_OF_MEMORY", rest)
   def parse(<<"INTERNAL_ERROR\r\n", rest::binary>>), do: error("INTERNAL_ERROR", rest)
   def parse(<<"DRAINING\r\n", rest::binary>>), do: error("DRAINING", rest)

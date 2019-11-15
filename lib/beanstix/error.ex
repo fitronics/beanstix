@@ -14,7 +14,7 @@ defmodule Beanstix.Error do
   `{:error, reason}` by `command/3` and `pipeline/3`) into a
   human-readable message string.
   """
-  @spec format_error(term) :: binary
+  @spec format_error(:inet.posix() | :tcp_closed | :closed) :: binary
   def format_error(reason)
 
   # :inet.format_error/1 doesn't format :tcp_closed or :closed.

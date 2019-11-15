@@ -4,11 +4,13 @@ defmodule Beanstix do
   @moduledoc """
   Beanstix - A beanstalkd client coding with Elixir
 
-  Fored from ElixirTalk
+  Forked from ElixirTalk
   Copyright 2014-2016 by jsvisa(delweng@gmail.com)
   """
+  @type job_id :: non_neg_integer
   @type connection_error :: :timeout | :closed | :inet.posix()
-  @type result :: {:ok, non_neg_integer} | {:error, term}
+  @type put_result :: {:ok, job_id} | {:error, Beanstix.Error.t() | connection_error | binary}
+  @type put_options :: [{:priority, integer}, {:delay, integer}, {:ttr, integer}]
 
   @vsn 1.0
 
@@ -16,7 +18,7 @@ defmodule Beanstix do
   Connect to the beanstalkd server.
   """
 
-  @spec connect(List.t()) :: {:ok, pid} | {:error, term}
+  @spec connect(list) :: {:ok, pid} | {:error, term}
   def connect(opts) when is_list(opts) do
     Connection.start_link(opts)
   end
@@ -39,6 +41,7 @@ defmodule Beanstix do
   def pipeline(pid, commands, timeout) when length(commands) > 0, do: Connection.call(pid, commands, timeout)
   def pipeline(_, _, _), do: []
 
+  @spec command(pid, atom | tuple, integer | :infinity) :: {:ok, term} | {:error, term}
   def command(pid, command, timeout \\ 5000) do
     case pipeline(pid, [command], timeout) do
       result when is_list(result) -> hd(result)
@@ -65,14 +68,16 @@ defmodule Beanstix do
       The minimum ttr is 1. If the client sends 0, the server will silently
       increase the ttr to 1.
   """
-  @spec put(pid, String.t()) :: result
-  @spec put(pid, String.t(), [{:priority, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  @spec put(pid, String.t()) :: put_result
+  @spec put(pid, String.t(), put_options) :: put_result
   def put(pid, data, opts \\ []) do
     command(pid, {:put, data, opts})
   end
 
-  def put!(data, opts \\ []) do
-    case put(data, opts) do
+  @spec put!(pid, String.t()) :: job_id
+  @spec put!(pid, String.t(), put_options) :: job_id
+  def put!(pid, data, opts \\ []) do
+    case put(pid, data, opts) do
       {:ok, job_id} -> job_id
       {:error, message} -> raise Beanstix.Error, message: message
     end
@@ -82,8 +87,8 @@ defmodule Beanstix do
   Put a job in the specified tube.
   The opts are the same as `put`
   """
-  @spec put_in_tube(pid, String.t(), String.t()) :: result
-  @spec put_in_tube(pid, String.t(), String.t(), [{:priority, integer}, {:delay, integer}, {:ttr, integer}]) :: result
+  @spec put_in_tube(pid, String.t(), String.t()) :: put_result
+  @spec put_in_tube(pid, String.t(), String.t(), put_options) :: put_result
   def put_in_tube(pid, tube, data, opts \\ []) do
     case pipeline(pid, [{:use, tube}, {:put, data, opts}]) do
       [{:ok, ^tube}, result] -> result
@@ -91,6 +96,8 @@ defmodule Beanstix do
     end
   end
 
+  @spec put_in_tube!(pid, String.t(), String.t()) :: job_id
+  @spec put_in_tube!(pid, String.t(), String.t(), put_options) :: job_id
   def put_in_tube!(pid, tube, data, opts \\ []) do
     case put_in_tube(pid, tube, data, opts) do
       {:ok, job_id} -> job_id
@@ -101,7 +108,7 @@ defmodule Beanstix do
   @doc """
   Use a tube to `put` jobs.
   """
-  @spec use(pid, String.t()) :: {:using, String.t()} | connection_error
+  @spec use(pid, String.t()) :: {:ok, String.t()} | {:error, connection_error}
   def use(pid, tube) do
     command(pid, {:use, tube})
   end
@@ -111,7 +118,7 @@ defmodule Beanstix do
   A reserve command will take a job from any of the tubes in the
   watch list.
   """
-  @spec watch(pid, String.t()) :: {:watching, non_neg_integer} | connection_error
+  @spec watch(pid, String.t()) :: {:ok, non_neg_integer} | {:error, connection_error}
   def watch(pid, tube) do
     command(pid, {:watch, tube})
   end
@@ -119,7 +126,7 @@ defmodule Beanstix do
   @doc """
   Remove the named tube from the watch list for the current connection.
   """
-  @spec ignore(pid, String.t()) :: {:watching, non_neg_integer} | :not_ignored | connection_error
+  @spec ignore(pid, String.t()) :: {:ok, non_neg_integer | :not_ignored} | {:error, connection_error}
   def ignore(pid, tube) do
     command(pid, {:ignore, tube})
   end
@@ -131,11 +138,12 @@ defmodule Beanstix do
   buried.
   """
 
-  @spec delete(pid, non_neg_integer) :: :deleted | :not_found | connection_error
+  @spec delete(pid, job_id) :: {:ok, :deleted | :not_found} | {:error, connection_error}
   def delete(pid, id) do
     command(pid, {:delete, id})
   end
 
+  @spec delete!(pid, job_id) :: :deleted
   def delete!(pid, id) do
     case delete(pid, id) do
       {:ok, :deleted} -> :deleted
@@ -151,8 +159,7 @@ defmodule Beanstix do
   (e.g. it may do this on DEADLINE_SOON). The command postpones the auto
   release of a reserved job until TTR seconds from when the command is issued.
   """
-
-  @spec touch(pid, non_neg_integer) :: :touched | :not_found | connection_error
+  @spec touch(pid, job_id) :: {:ok, :touched | :not_found} | {:error, connection_error}
   def touch(pid, id) do
     command(pid, {:touch, id})
   end
@@ -161,7 +168,7 @@ defmodule Beanstix do
   Let the client inspect a job in the system. Peeking the given job id
   """
 
-  @spec peek(pid, non_neg_integer) :: {:found, non_neg_integer} | :not_found | connection_error
+  @spec peek(pid, job_id) :: {:ok, job_id | :not_found} | {:error, connection_error}
   def peek(pid, id) do
     command(pid, {:peek, id})
   end
@@ -170,7 +177,7 @@ defmodule Beanstix do
   Peeking the next ready job.
   """
 
-  @spec peek_ready(pid) :: {:found, non_neg_integer} | :not_found | connection_error
+  @spec peek_ready(pid) :: {:ok, job_id | :not_found} | {:error, connection_error}
   def peek_ready(pid) do
     command(pid, :peek_ready)
   end
@@ -179,7 +186,7 @@ defmodule Beanstix do
   Peeking the delayed job with the shortest delay left.
   """
 
-  @spec peek_delayed(pid) :: {:found, non_neg_integer} | :not_found | connection_error
+  @spec peek_delayed(pid) :: {:ok, job_id | :not_found} | {:error, connection_error}
   def peek_delayed(pid) do
     command(pid, :peek_delayed)
   end
@@ -188,7 +195,7 @@ defmodule Beanstix do
   Peeking the next job in the list of buried jobs.
   """
 
-  @spec peek_buried(pid) :: {:found, non_neg_integer} | :not_found | connection_error
+  @spec peek_buried(pid) :: {:ok, job_id | :not_found} | {:error, connection_error}
   def peek_buried(pid) do
     command(pid, :peek_buried)
   end
@@ -200,7 +207,7 @@ defmodule Beanstix do
   Apply only to the currently used tube.
   """
 
-  @spec kick(pid, non_neg_integer) :: {:kicked, non_neg_integer} | connection_error
+  @spec kick(pid, non_neg_integer) :: {:ok, non_neg_integer} | {:error, connection_error}
   def kick(pid, bound \\ 1) do
     command(pid, {:kick, [bound: bound]})
   end
@@ -211,7 +218,7 @@ defmodule Beanstix do
   currently belongs.
   """
 
-  @spec kick_job(pid, non_neg_integer) :: :kicked | :not_found | connection_error
+  @spec kick_job(pid, job_id) :: {:ok, :not_found | :kicked} | {:error, connection_error}
   def kick_job(pid, id) do
     command(pid, {:kick_job, id})
   end
@@ -220,7 +227,7 @@ defmodule Beanstix do
   Give statistical information about the system as a whole.
   """
 
-  @spec stats(pid) :: Map.t() | connection_error
+  @spec stats(pid) :: {:ok, Map.t()} | {:error, connection_error}
   def stats(pid) do
     command(pid, :stats)
   end
@@ -230,7 +237,7 @@ defmodule Beanstix do
   it exists.
   """
 
-  @spec stats_job(pid, non_neg_integer) :: Map.t() | :not_found | connection_error
+  @spec stats_job(pid, non_neg_integer) :: {:ok, Map.t() | :not_found} | {:error, connection_error}
   def stats_job(pid, id) do
     command(pid, {:stats_job, id})
   end
@@ -240,11 +247,12 @@ defmodule Beanstix do
   if it exists.
   """
 
-  @spec stats_tube(pid, String.t()) :: Map.t() | :not_found | connection_error
+  @spec stats_tube(pid, String.t()) :: {:ok, Map.t() | :not_found} | {:error, connection_error}
   def stats_tube(pid, tube) do
     command(pid, {:stats_tube, tube})
   end
 
+  @spec stats_tube!(pid, String.t()) :: {:ok, Map.t() | :not_found} | {:error, connection_error}
   def stats_tube!(pid, tube) do
     case stats_tube(pid, tube) do
       {:ok, stats} -> stats
@@ -256,11 +264,12 @@ defmodule Beanstix do
   Return a list of all existing tubes in the server.
   """
 
-  @spec list_tubes(pid) :: list | connection_error
+  @spec list_tubes(pid) :: {:ok, list} | {:error, connection_error}
   def list_tubes(pid) do
     command(pid, :list_tubes)
   end
 
+  @spec list_tubes!(pid) :: list
   def list_tubes!(pid) do
     case list_tubes(pid) do
       {:ok, tubes} -> tubes
@@ -272,7 +281,7 @@ defmodule Beanstix do
   Return the tube currently being used by the client.
   """
 
-  @spec list_tube_used(pid) :: {:using, String.t()} | connection_error
+  @spec list_tube_used(pid) :: {:ok, String.t()} | {:error, connection_error}
   def list_tube_used(pid) do
     command(pid, :list_tube_used)
   end
@@ -281,7 +290,7 @@ defmodule Beanstix do
   Return the tubes currently being watched by the client.
   """
 
-  @spec list_tubes_watched(pid) :: list | connection_error
+  @spec list_tubes_watched(pid) :: {:ok, list} | {:error, connection_error}
   def list_tubes_watched(pid) do
     command(pid, :list_tubes_watched)
   end
@@ -290,11 +299,12 @@ defmodule Beanstix do
   Get a job from the currently watched tubes.
   """
 
-  @spec reserve(pid) :: {:reserved, non_neg_integer, String.t()} | connection_error
+  @spec reserve(pid) :: {:ok, {job_id, String.t()}} | {:error, connection_error}
   def reserve(pid) do
     command(pid, :reserve, :infinity)
   end
 
+  @spec reserve!(pid) :: {job_id, String.t()}
   def reserve!(pid) do
     case reserve(pid) do
       {:ok, {job_id, data}} -> {job_id, data}
@@ -307,10 +317,7 @@ defmodule Beanstix do
   """
 
   @spec reserve(pid, non_neg_integer) ::
-          {:reserved, non_neg_integer, String.t()}
-          | :deadline_soon
-          | :timed_out
-          | connection_error
+          {:ok, {job_id, String.t()} | :deadline_soon | :timed_out} | {:error, connection_error}
   def reserve(pid, timeout) do
     command(pid, {:reserve_with_timeout, timeout}, :infinity)
   end
@@ -321,8 +328,8 @@ defmodule Beanstix do
   kicks them with the `kick` command.
   """
 
-  @spec bury(pid, non_neg_integer) :: :buried | :not_found | connection_error
-  @spec bury(pid, non_neg_integer, [{:priority, integer}]) :: :buried | :not_found | connection_error
+  @spec bury(pid, non_neg_integer) :: {:ok, :buried | :not_found} | {:error, connection_error}
+  @spec bury(pid, non_neg_integer, [{:priority, integer}]) :: {:ok, :buried | :not_found} | {:error, connection_error}
   def bury(pid, id, opts \\ []) do
     command(pid, {:bury, id, opts})
   end
@@ -331,7 +338,7 @@ defmodule Beanstix do
   Delay any new job being reserved for a given time.
   """
 
-  @spec pause_tube(pid, String.t(), [{:delay, integer}]) :: :paused | :not_found | connection_error
+  @spec pause_tube(pid, String.t(), [{:delay, integer}]) :: {:ok, :paused | :not_found} | {:error, connection_error}
   def pause_tube(pid, tube, opts \\ []) do
     command(pid, {:pause_tube, tube, opts})
   end
@@ -348,16 +355,9 @@ defmodule Beanstix do
     The job will be in the "delayed" state during this time.
   """
 
-  @spec release(pid, non_neg_integer) ::
-          :released
-          | :buried
-          | :not_found
-          | connection_error
+  @spec release(pid, non_neg_integer) :: {:ok, :released | :buried | :not_found} | {:error, connection_error}
   @spec release(pid, non_neg_integer, [{:priority, integer}, {:delay, integer}]) ::
-          :released
-          | :buried
-          | :not_found
-          | connection_error
+          {:ok, :released | :buried | :not_found} | {:error, connection_error}
   def release(pid, id, opts \\ []) do
     command(pid, {:release, id, opts})
   end
