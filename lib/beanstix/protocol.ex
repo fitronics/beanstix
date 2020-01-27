@@ -174,6 +174,9 @@ defmodule Beanstix.Protocol do
   defp parse_digits(<<" ", rest::binary>>, acc),
     do: {:ok, acc, rest}
 
+  defp parse_digits(<<"\r">>, _),
+    do: :incomplete
+
   defp parse_digits(<<>>, _),
     do: :incomplete
 

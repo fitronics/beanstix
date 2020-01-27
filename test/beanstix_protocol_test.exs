@@ -39,6 +39,7 @@ defmodule BeanstixProtocolTest do
   test "parse/1" do
     assert Protocol.parse("INSERTED") == :incomplete
     assert Protocol.parse("INSERTED ") == :incomplete
+    assert Protocol.parse("INSERTED 1\r") == :incomplete
     assert Protocol.parse("INSERTED 1\r\n") == {:ok, 1, ""}
 
     assert_raise ParseError, fn ->
