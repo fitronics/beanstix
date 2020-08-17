@@ -8,7 +8,9 @@ defmodule Beanstix.MixProject do
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package()
     ]
   end
 
@@ -31,6 +33,17 @@ defmodule Beanstix.MixProject do
   defp aliases do
     [
       lint: ["format --check-formatted", "credo --strict"]
+    ]
+  end
+
+  defp description() do
+    "A beanstalkd client for Elixir."
+  end
+
+  defp package() do
+    [
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/fitronics/beanstix"}
     ]
   end
 end
