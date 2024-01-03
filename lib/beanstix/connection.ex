@@ -9,7 +9,7 @@ defmodule Beanstix.Connection do
 
   defmodule State do
     @moduledoc false
-    defstruct host: '127.0.0.1',
+    defstruct host: ~c"127.0.0.1",
               port: 11300,
               conn: nil,
               from: nil,

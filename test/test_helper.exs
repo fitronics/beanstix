@@ -1,6 +1,6 @@
 ExUnit.start()
 
-host = '127.0.0.1'
+host = ~c"127.0.0.1"
 port = 11300
 
 case :gen_tcp.connect(host, port, []) do
@@ -15,7 +15,7 @@ defmodule Beanstix.TestHelpers do
   use ExUnit.Case
 
   def setup_connection(context) do
-    host = '127.0.0.1'
+    host = ~c"127.0.0.1"
     port = 11300
 
     if context[:no_setup] do

@@ -25,7 +25,7 @@ defmodule Beanstix do
 
   @spec connect(:inet.ip_address() | :inet.hostname(), integer, timeout) ::
           {:ok, pid} | {:error, term}
-  def connect(host \\ '127.0.0.1', port \\ 11300, timeout \\ :infinity) do
+  def connect(host \\ ~c"127.0.0.1", port \\ 11300, timeout \\ :infinity) do
     connect(host: host, port: port, recv_timeout: timeout, connect_timeout: 5_000)
   end
 
