@@ -25,7 +25,7 @@ defmodule Beanstix.MixProject do
   defp deps do
     [
       {:connection, "~> 1.0"},
-      {:credo, "~> 1.1.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
